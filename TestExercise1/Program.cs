@@ -1,7 +1,11 @@
-﻿using Newtonsoft.Json;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
+using Newtonsoft.Json;
+using Serilog;
 using System;
 using System.IO;
 using System.IO.Compression;
+
 
 namespace TestExercise1
 {
@@ -9,14 +13,33 @@ namespace TestExercise1
     {
         static void Main(string[] args)
         {
+            var builder = new ConfigurationBuilder();
+            BuildConfig(builder);
+            Log.Logger = new LoggerConfiguration()
+                .ReadFrom.Configuration(builder.Build())
+                .Enrich.FromLogContext()
+                .WriteTo.File(Directory.GetCurrentDirectory()+@"\Logs\log.txt", rollingInterval: RollingInterval.Day)
+                .CreateLogger();
+
+            Log.Logger.Information("Application start at {datetime}", DateTime.UtcNow);
+
+            
+
+            Backup();
+
+            Console.ReadKey();
+        }
+    
+        static void Backup()
+        {
             //Quantity of iterations
             Console.WriteLine("Сколько нужно JSON");
             int quantity = Convert.ToInt32(Console.ReadLine());
-           
+
             for (int i = 1; i < quantity + 1; i++)
             {
-                //Need to change this path 
-                string JsonPath = @"E:\TestExercise1\TestExercise1\JSON";
+
+                string JsonPath = Directory.GetCurrentDirectory()+@"\JSON";
 
                 //Path to inital directory
                 Console.WriteLine("Введите исходный путь: ");
@@ -43,22 +66,23 @@ namespace TestExercise1
                 string initDir = obj.InitialDirectory;
                 string endDir = obj.EndDirectory;
 
-                Backup(initDir, endDir);
+                //Create zip file from directory with creation time
+                string timestamp = DateTime.Now.ToString("dddd, dd MMMM yyyy HH.mm.ss");
+                string destination = endDir + @"\" + timestamp + ".zip";
+                ZipFile.CreateFromDirectory(initDir, destination);
 
                 Console.WriteLine("_________________________________________________________");
             }
 
-            Console.ReadKey();
         }
 
-        static void Backup(string initDir, string endDir)
+        static void BuildConfig(IConfigurationBuilder builder)
         {
-            //Create zip file from directory with creation time
-            string timestamp = DateTime.Now.ToString("dddd, dd MMMM yyyy HH.mm.ss");
-            string destination = endDir + @"\" + timestamp + ".zip";
-            ZipFile.CreateFromDirectory(initDir, destination);
+            builder.SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
 
         }
 
     }
 }
+  
